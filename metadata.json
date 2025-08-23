@@ -1,0 +1,5 @@
+{
+  "name": "Cornell Notes Taker",
+  "description": "A note-taking application based on the Cornell Method. Organize your notes into index, content, and summary sections, and export them easily.",
+  "requestFramePermissions": []
+}
