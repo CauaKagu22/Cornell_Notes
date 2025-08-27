@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import type { Note, NoteTab, Folder, SavingStatus, NoteBlock } from '../types';
 import SavingIndicator from './SavingIndicator';
 import { useVirtualKeyboardHeight } from '../hooks/useVirtualKeyboardHeight';
@@ -111,6 +111,18 @@ const NoteBlockComponent: React.FC<{
 const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHome, onSaveToDrive, savingStatus, hasUnsavedChanges, isSignedIn }) => {
   const keyboardHeight = useVirtualKeyboardHeight();
 
+  useEffect(() => {
+    // Prevent the main body from scrolling. This makes the internal scrolling container work reliably on mobile.
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = 'hidden';
+    
+    // Revert to original style when the component unmounts
+    return () => {
+        document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
+
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdateNote({ id: note.id, title: e.target.value });
   };
@@ -185,69 +197,73 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
   }, [note]);
   
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
-      <header className="flex justify-between items-center mb-6 flex-wrap gap-4">
-        <button
-            onClick={onGoHome}
-            className="flex items-center text-text-dim hover:text-text-main transition-colors"
-        >
-            <BackIcon />
-            All Notes
-        </button>
-        <div className="flex-1 min-w-[200px] text-center">
-            {folder && (
-                <div className="text-sm text-text-dim mb-1">
-                    In folder: <span className="font-semibold" style={{color: folder.color}}>{folder.name}</span>
-                </div>
-            )}
-            <input
-                type="text"
-                value={note.title}
-                onChange={handleTitleChange}
-                placeholder="Note Title"
-                className="w-full bg-transparent text-2xl md:text-3xl font-bold text-center text-text-main focus:outline-none focus:ring-2 focus:ring-primary rounded-md px-2 py-1"
+    <>
+      <div 
+        className="max-w-4xl mx-auto animate-fade-in flex flex-col h-[calc(100vh-2rem)] md:h-[calc(100vh-4rem)]"
+      >
+        <header className="flex justify-between items-center mb-6 flex-wrap gap-4">
+          <button
+              onClick={onGoHome}
+              className="flex items-center text-text-dim hover:text-text-main transition-colors"
+          >
+              <BackIcon />
+              All Notes
+          </button>
+          <div className="flex-1 min-w-[200px] text-center">
+              {folder && (
+                  <div className="text-sm text-text-dim mb-1">
+                      In folder: <span className="font-semibold" style={{color: folder.color}}>{folder.name}</span>
+                  </div>
+              )}
+              <input
+                  type="text"
+                  value={note.title}
+                  onChange={handleTitleChange}
+                  placeholder="Note Title"
+                  className="w-full bg-transparent text-2xl md:text-3xl font-bold text-center text-text-main focus:outline-none focus:ring-2 focus:ring-primary rounded-md px-2 py-1"
+              />
+          </div>
+          <div className="flex items-center gap-4">
+              {isSignedIn && <SavingIndicator status={savingStatus} hasUnsavedChanges={hasUnsavedChanges} />}
+              {isSignedIn && (
+                  <button
+                      onClick={onSaveToDrive}
+                      disabled={savingStatus === 'saving'}
+                      className={`flex items-center justify-center font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                          hasUnsavedChanges ? 'bg-secondary text-white hover:bg-purple-500 animate-pulse' : 'bg-surface text-text-main hover:bg-border-color'
+                      }`}
+                  >
+                      <CloudUploadIcon className="h-5 w-5 mr-2" />
+                      {savingStatus === 'saving' ? 'Saving...' : 'Save'}
+                  </button>
+              )}
+              <button
+                  onClick={handleExport}
+                  className="flex items-center bg-transparent border border-primary text-primary font-semibold py-2 px-4 rounded-lg hover:bg-primary hover:text-white transition-all duration-300"
+              >
+                  <ExportIcon />
+                  Export
+              </button>
+          </div>
+        </header>
+        
+        <main className="flex-grow overflow-y-auto space-y-6">
+          {note.blocks.map(block => (
+            <NoteBlockComponent
+              key={block.id}
+              block={block}
+              onUpdate={handleUpdateBlock}
+              onDelete={handleDeleteBlock}
             />
-        </div>
-        <div className="flex items-center gap-4">
-            {isSignedIn && <SavingIndicator status={savingStatus} hasUnsavedChanges={hasUnsavedChanges} />}
-            {isSignedIn && (
-                <button
-                    onClick={onSaveToDrive}
-                    disabled={savingStatus === 'saving'}
-                    className={`flex items-center justify-center font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        hasUnsavedChanges ? 'bg-secondary text-white hover:bg-purple-500 animate-pulse' : 'bg-surface text-text-main hover:bg-border-color'
-                    }`}
-                >
-                    <CloudUploadIcon className="h-5 w-5 mr-2" />
-                    {savingStatus === 'saving' ? 'Saving...' : 'Save'}
-                </button>
-            )}
-            <button
-                onClick={handleExport}
-                className="flex items-center bg-transparent border border-primary text-primary font-semibold py-2 px-4 rounded-lg hover:bg-primary hover:text-white transition-all duration-300"
-            >
-                <ExportIcon />
-                Export
-            </button>
-        </div>
-      </header>
-      
-      <main className="space-y-6 pb-32">
-        {note.blocks.map(block => (
-          <NoteBlockComponent
-            key={block.id}
-            block={block}
-            onUpdate={handleUpdateBlock}
-            onDelete={handleDeleteBlock}
-          />
-        ))}
-        {note.blocks.length === 0 && (
-            <div className="text-center py-16 px-6 bg-surface rounded-xl">
-                <h2 className="text-2xl font-semibold mb-2">Empty Note</h2>
-                <p className="text-text-dim">Use the buttons below to add your first block.</p>
-            </div>
-        )}
-      </main>
+          ))}
+          {note.blocks.length === 0 && (
+              <div className="text-center py-16 px-6 bg-surface rounded-xl">
+                  <h2 className="text-2xl font-semibold mb-2">Empty Note</h2>
+                  <p className="text-text-dim">Use the buttons below to add your first block.</p>
+              </div>
+          )}
+        </main>
+      </div>
 
       {/* Action Buttons Footer */}
       <footer 
@@ -280,7 +296,7 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
             </div>
           </div>
       </footer>
-    </div>
+    </>
   );
 };
 
