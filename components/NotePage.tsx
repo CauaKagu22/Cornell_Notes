@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import type { Note, NoteTab, Folder, SavingStatus, NoteBlock } from '../types';
 import SavingIndicator from './SavingIndicator';
+import { useVirtualKeyboardHeight } from '../hooks/useVirtualKeyboardHeight';
 
 interface NotePageProps {
   note: Note;
@@ -108,6 +109,7 @@ const NoteBlockComponent: React.FC<{
 
 // --- NOTE PAGE ---
 const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHome, onSaveToDrive, savingStatus, hasUnsavedChanges, isSignedIn }) => {
+  const keyboardHeight = useVirtualKeyboardHeight();
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdateNote({ id: note.id, title: e.target.value });
@@ -230,30 +232,50 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
         </div>
       </header>
       
-      <main className="space-y-4 pb-28">
-          {note.blocks.map((block, index) => (
-              <React.Fragment key={block.id}>
-                 {index > 0 && <hr className="border-t-2 border-dashed border-border-color/50 my-4" />}
-                 <NoteBlockComponent 
-                    block={block}
-                    onUpdate={handleUpdateBlock}
-                    onDelete={handleDeleteBlock}
-                 />
-              </React.Fragment>
-          ))}
+      <main className="space-y-6 pb-32">
+        {note.blocks.map(block => (
+          <NoteBlockComponent
+            key={block.id}
+            block={block}
+            onUpdate={handleUpdateBlock}
+            onDelete={handleDeleteBlock}
+          />
+        ))}
+        {note.blocks.length === 0 && (
+            <div className="text-center py-16 px-6 bg-surface rounded-xl">
+                <h2 className="text-2xl font-semibold mb-2">Empty Note</h2>
+                <p className="text-text-dim">Use the buttons below to add your first block.</p>
+            </div>
+        )}
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-20">
-          <div className="container mx-auto max-w-4xl p-4">
-            <div className="bg-surface/80 backdrop-blur-md rounded-xl shadow-2xl p-2 flex justify-around items-center gap-2">
-                <button onClick={() => handleAddBlock('index')} className="flex-1 text-center font-semibold py-3 px-4 rounded-lg transition-colors text-[#a855f7] hover:bg-[#a855f7]/20">
-                    Add Index
+      {/* Action Buttons Footer */}
+      <footer 
+        className="fixed bottom-0 left-0 right-0 z-10 p-2 bg-brand-bg/80 backdrop-blur-sm border-t border-border-color transition-transform duration-300 ease-out"
+        style={{ transform: `translateY(-${keyboardHeight}px)` }}
+      >
+          <div className="max-w-4xl mx-auto">
+            <div className="flex justify-around items-center gap-2">
+                <button 
+                  onClick={() => handleAddBlock('index')} 
+                  className="flex-1 text-center py-3 px-2 rounded-lg bg-surface hover:bg-border-color transition-colors text-sm font-semibold" 
+                  style={{color: '#a855f7'}}
+                >
+                  + Add Index / Cue
                 </button>
-                <button onClick={() => handleAddBlock('content')} className="flex-1 text-center font-semibold py-3 px-4 rounded-lg transition-colors text-[#6366f1] hover:bg-[#6366f1]/20">
-                    Add Content
+                <button 
+                  onClick={() => handleAddBlock('content')} 
+                  className="flex-1 text-center py-3 px-2 rounded-lg bg-surface hover:bg-border-color transition-colors text-sm font-semibold" 
+                  style={{color: '#6366f1'}}
+                >
+                  + Add Content
                 </button>
-                <button onClick={() => handleAddBlock('notes')} className="flex-1 text-center font-semibold py-3 px-4 rounded-lg transition-colors text-[#22c55e] hover:bg-[#22c55e]/20">
-                    Add Summary
+                <button 
+                  onClick={() => handleAddBlock('notes')} 
+                  className="flex-1 text-center py-3 px-2 rounded-lg bg-surface hover:bg-border-color transition-colors text-sm font-semibold" 
+                  style={{color: '#22c55e'}}
+                >
+                  + Add Summary
                 </button>
             </div>
           </div>
