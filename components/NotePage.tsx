@@ -1,7 +1,6 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef } from 'react';
 import type { Note, NoteTab, Folder, SavingStatus, NoteBlock } from '../types';
 import SavingIndicator from './SavingIndicator';
-import { useVirtualKeyboardHeight } from '../hooks/useVirtualKeyboardHeight';
 
 interface NotePageProps {
   note: Note;
@@ -109,15 +108,6 @@ const NoteBlockComponent: React.FC<{
 
 // --- NOTE PAGE ---
 const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHome, onSaveToDrive, savingStatus, hasUnsavedChanges, isSignedIn }) => {
-  const keyboardHeight = useVirtualKeyboardHeight();
-  const footerRef = useRef<HTMLElement>(null);
-  const [footerHeight, setFooterHeight] = useState(0);
-
-  useEffect(() => {
-    if (footerRef.current) {
-      setFooterHeight(footerRef.current.offsetHeight);
-    }
-  }, []);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdateNote({ id: note.id, title: e.target.value });
@@ -193,8 +183,8 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
   }, [note]);
   
   return (
-    <div className="max-w-4xl mx-auto">
-      <header className="flex justify-between items-center mb-6 flex-wrap gap-4">
+    <div className="max-w-4xl mx-auto h-full flex flex-col p-4 md:p-8">
+      <header className="flex-shrink-0 flex justify-between items-center mb-6 flex-wrap gap-4">
         <button
             onClick={onGoHome}
             className="flex items-center text-text-dim hover:text-text-main transition-colors"
@@ -240,7 +230,7 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
         </div>
       </header>
       
-      <main className="space-y-6" style={{ paddingBottom: footerHeight > 0 ? `${footerHeight + 24}px` : '8rem' }}>
+      <main className="flex-1 overflow-y-auto space-y-6">
         {note.blocks.map(block => (
           <NoteBlockComponent
             key={block.id}
@@ -258,11 +248,7 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
       </main>
 
       {/* Action Buttons Footer */}
-      <footer 
-        ref={footerRef}
-        className="fixed left-0 right-0 z-10 p-2 bg-brand-bg/95 border-t border-border-color transition-[bottom] duration-300 ease-out"
-        style={{ bottom: `${keyboardHeight}px` }}
-      >
+      <footer className="flex-shrink-0 pt-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex justify-around items-center gap-2">
                 <button 

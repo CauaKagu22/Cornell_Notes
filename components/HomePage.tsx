@@ -349,9 +349,9 @@ const HomePage: React.FC<HomePageProps> = (props) => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto animate-fade-in">
+        <div className="max-w-7xl mx-auto animate-fade-in h-full flex flex-col p-4 md:p-8">
             {authError && <AuthErrorDisplay message={authError} />}
-            <header className="flex justify-between items-center mb-8 flex-wrap gap-4">
+            <header className="flex-shrink-0 flex justify-between items-center mb-8 flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Cornell Notes</h1>
                     {isSignedIn && <SavingIndicator status={savingStatus} hasUnsavedChanges={hasUnsavedChanges} />}
@@ -387,57 +387,59 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                 </div>
             </header>
             
-            <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetectionStrategy}>
-                <main className="space-y-12">
-                    {folders.map(folder => {
-                        const notesInThisFolder = notesByFolder.get(folder.id) || [];
-                        return (
-                            <FolderSection
-                                key={folder.id}
-                                folder={folder}
-                                notes={notesInThisFolder}
-                                isCollapsed={!!collapsedFolders[folder.id]}
-                                onToggleFolder={onToggleFolder}
-                                onCreateNote={onCreateNote as (folderId: string) => void}
+            <div className="flex-1 overflow-y-auto">
+                <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetectionStrategy}>
+                    <main className="space-y-12">
+                        {folders.map(folder => {
+                            const notesInThisFolder = notesByFolder.get(folder.id) || [];
+                            return (
+                                <FolderSection
+                                    key={folder.id}
+                                    folder={folder}
+                                    notes={notesInThisFolder}
+                                    isCollapsed={!!collapsedFolders[folder.id]}
+                                    onToggleFolder={onToggleFolder}
+                                    onCreateNote={onCreateNote as (folderId: string) => void}
+                                    onSelectNote={onSelectNote}
+                                    onDeleteNote={onDeleteNote}
+                                    onOpenDeleteFolderModal={onOpenDeleteFolderModal}
+                                />
+                            );
+                        })}
+
+                        {uncategorizedNotes.length > 0 && (
+                        <UncategorizedSection
+                                notes={uncategorizedNotes}
                                 onSelectNote={onSelectNote}
                                 onDeleteNote={onDeleteNote}
-                                onOpenDeleteFolderModal={onOpenDeleteFolderModal}
-                            />
-                        );
-                    })}
+                        />
+                        )}
 
-                    {uncategorizedNotes.length > 0 && (
-                       <UncategorizedSection
-                            notes={uncategorizedNotes}
-                            onSelectNote={onSelectNote}
-                            onDeleteNote={onDeleteNote}
-                       />
-                    )}
-
-                    {isEverythingEmpty && (
-                        <div className="text-center py-16 px-6 bg-surface rounded-xl">
-                            <h2 className="text-2xl font-semibold mb-2">Your workspace is empty!</h2>
-                            <p className="text-text-dim mb-6">Create a folder or a new note to get started.</p>
-                            <button
-                                onClick={() => onCreateNote(null)}
-                                className="inline-flex items-center justify-center bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-primary-hover transition-all duration-300"
-                            >
-                                <PlusIcon />
-                                Create Your First Note
-                            </button>
-                        </div>
-                    )}
-                </main>
-                <DragOverlay dropAnimation={null}>
-                    {activeNote ? (
-                        <div className="opacity-95 shadow-2xl scale-105 transform-gpu">
-                            <NoteCard note={activeNote} onSelect={() => {}} onDelete={() => {}} />
-                        </div>
-                    ) : null}
-                </DragOverlay>
-                
-                {activeDragId && <TrashDropZone />}
-            </DndContext>
+                        {isEverythingEmpty && (
+                            <div className="text-center py-16 px-6 bg-surface rounded-xl">
+                                <h2 className="text-2xl font-semibold mb-2">Your workspace is empty!</h2>
+                                <p className="text-text-dim mb-6">Create a folder or a new note to get started.</p>
+                                <button
+                                    onClick={() => onCreateNote(null)}
+                                    className="inline-flex items-center justify-center bg-primary text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-primary-hover transition-all duration-300"
+                                >
+                                    <PlusIcon />
+                                    Create Your First Note
+                                </button>
+                            </div>
+                        )}
+                    </main>
+                    <DragOverlay dropAnimation={null}>
+                        {activeNote ? (
+                            <div className="opacity-95 shadow-2xl scale-105 transform-gpu">
+                                <NoteCard note={activeNote} onSelect={() => {}} onDelete={() => {}} />
+                            </div>
+                        ) : null}
+                    </DragOverlay>
+                    
+                    {activeDragId && <TrashDropZone />}
+                </DndContext>
+            </div>
         </div>
     );
 };

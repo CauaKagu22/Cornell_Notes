@@ -267,7 +267,7 @@ function App(): React.ReactNode {
   return (
     <>
       <div className="h-full bg-brand-bg text-text-main font-sans flex flex-col">
-        <div className="container mx-auto p-4 md:p-8 flex-1 overflow-y-auto">
+        <div className="container mx-auto flex-1 flex flex-col min-h-0">
           {activeNote ? (
             <NotePage
               note={activeNote}
