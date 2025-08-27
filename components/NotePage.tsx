@@ -260,7 +260,7 @@ const NotePage: React.FC<NotePageProps> = ({ note, folder, onUpdateNote, onGoHom
       {/* Action Buttons Footer */}
       <footer 
         ref={footerRef}
-        className="fixed left-0 right-0 z-10 p-2 bg-brand-bg/80 backdrop-blur-sm border-t border-border-color transition-[bottom] duration-300 ease-out"
+        className="fixed left-0 right-0 z-10 p-2 bg-brand-bg/95 border-t border-border-color transition-[bottom] duration-300 ease-out"
         style={{ bottom: `${keyboardHeight}px` }}
       >
           <div className="max-w-4xl mx-auto">
