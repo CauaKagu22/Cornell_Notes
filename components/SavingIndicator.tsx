@@ -3,6 +3,7 @@ import type { SavingStatus } from '../types';
 
 interface SavingIndicatorProps {
   status: SavingStatus;
+  hasUnsavedChanges: boolean;
 }
 
 const SpinnerIcon = ({ className = "h-5 w-5" }) => (
@@ -24,38 +25,52 @@ const CloudErrorIcon = () => (
     </svg>
 );
 
+const UnsavedChangesIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+);
 
-const SavingIndicator: React.FC<SavingIndicatorProps> = ({ status }) => {
-    if (status === 'idle') {
-        return null;
-    }
 
+const SavingIndicator: React.FC<SavingIndicatorProps> = ({ status, hasUnsavedChanges }) => {
     let text = '';
     let color = 'text-text-dim';
     let IconComponent: React.ElementType | null = null;
     let title = '';
 
-    switch (status) {
-        case 'saving':
-            text = 'Saving...';
-            IconComponent = SpinnerIcon;
-            title = 'Saving changes to Google Drive.';
-            break;
-        case 'saved':
-            text = 'Saved';
-            color = 'text-green-400';
-            IconComponent = CloudCheckIcon;
-            title = 'All changes have been saved to Google Drive.';
-            break;
-        case 'error':
-            text = 'Error saving';
-            color = 'text-red-500';
-            IconComponent = CloudErrorIcon;
-            title = 'Could not save changes to Google Drive. Please check your internet connection.';
-            break;
-        default:
-            return null;
+    if (status === 'idle') {
+        if (hasUnsavedChanges) {
+            text = 'Unsaved changes';
+            color = 'text-yellow-400';
+            IconComponent = UnsavedChangesIcon;
+            title = 'You have unsaved changes. Click "Save" to sync with Google Drive.';
+        } else {
+            return null; // All saved and idle
+        }
+    } else {
+        switch (status) {
+            case 'saving':
+                text = 'Saving...';
+                IconComponent = SpinnerIcon;
+                title = 'Saving changes to Google Drive.';
+                break;
+            case 'saved':
+                text = 'Saved';
+                color = 'text-green-400';
+                IconComponent = CloudCheckIcon;
+                title = 'All changes have been saved to Google Drive.';
+                break;
+            case 'error':
+                text = 'Error saving';
+                color = 'text-red-500';
+                IconComponent = CloudErrorIcon;
+                title = 'Could not save changes to Google Drive. Please check your internet connection.';
+                break;
+            default:
+                return null;
+        }
     }
+
 
     return (
         <div className={`flex items-center gap-2 text-sm transition-colors duration-300 ${color}`} title={title}>

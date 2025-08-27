@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
-import type { Note, Folder, SavingStatus } from './types';
+import type { Note, Folder, SavingStatus, NoteBlock } from './types';
 import HomePage from './components/HomePage';
 import NotePage from './components/NotePage';
 import FolderModal from './components/FolderModal';
@@ -15,27 +15,62 @@ function App(): React.ReactNode {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState<SavingStatus>('idle');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useLocalStorage<Record<string, boolean>>('cornell-collapsed-folders', {});
   
-  const saveDebounceTimeout = useRef<number | null>(null);
   const isSyncing = useRef(false);
-  const lastChangeType = useRef<'structural' | 'content'>('content');
+  const migrationRan = useRef(false);
+
+  // --- Data Migration for old note format ---
+  useEffect(() => {
+    if (notes.length > 0 && !migrationRan.current) {
+        const needsMigration = notes.some(n => !n.hasOwnProperty('blocks'));
+        if (needsMigration) {
+            console.log("Migrating notes to new block format...");
+            const migratedNotes = notes.map((note: any) => {
+                if (note.blocks && Array.isArray(note.blocks)) {
+                    return note as Note;
+                }
+
+                const newBlocks: NoteBlock[] = [];
+                const timestamp = () => `${Date.now()}-${Math.random()}`;
+
+                if (note.content) {
+                    newBlocks.push({ id: `block-${timestamp()}`, type: 'content', title: 'Main Notes', content: note.content });
+                }
+                if (note.index) {
+                    newBlocks.push({ id: `block-${timestamp()}`, type: 'index', title: 'Index / Cues', content: note.index });
+                }
+                if (note.notes) {
+                    newBlocks.push({ id: `block-${timestamp()}`, type: 'notes', title: 'Summary', content: note.notes });
+                }
+
+                if (newBlocks.length === 0) {
+                    newBlocks.push({ id: `block-${timestamp()}`, type: 'content', title: 'Main Notes', content: '' });
+                }
+                
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { index, content, notes: noteSummary, ...rest } = note;
+                return { ...rest, blocks: newBlocks };
+            });
+            setNotes(migratedNotes);
+            setHasUnsavedChanges(true);
+        }
+        migrationRan.current = true;
+    }
+  }, [notes, setNotes]);
 
   const saveDataToDrive = useCallback(async () => {
     if (isSyncing.current || !isSignedIn) return;
-
-    // Clear any existing timeout since we are now executing.
-    if (saveDebounceTimeout.current) {
-        clearTimeout(saveDebounceTimeout.current);
-        saveDebounceTimeout.current = null;
-    }
     
     setSavingStatus('saving');
     try {
         await driveService.saveAppState({ notes, folders });
         setSavingStatus('saved');
+        setHasUnsavedChanges(false);
+        setTimeout(() => setSavingStatus('idle'), 2000); // Revert to idle after 2s
     } catch (error) {
         setSavingStatus('error');
         console.error("Error saving app state to Drive:", error);
@@ -53,6 +88,7 @@ function App(): React.ReactNode {
             setNotes([]); // Clear notes on sign out
             setFolders([]);
             setActiveNoteId(null);
+            setHasUnsavedChanges(false);
           }
         });
         setIsAuthReady(true);
@@ -69,7 +105,7 @@ function App(): React.ReactNode {
       }
     };
     init();
-  }, []);
+  }, [setNotes, setFolders]);
 
   // --- Sync data from drive when user signs in ---
   useEffect(() => {
@@ -80,6 +116,7 @@ function App(): React.ReactNode {
           const { notes: driveNotes, folders: driveFolders } = await driveService.syncData();
           setNotes(driveNotes);
           setFolders(driveFolders);
+          setHasUnsavedChanges(false);
         } catch (error) {
           console.error("Failed to sync data from drive:", error);
         } finally {
@@ -90,27 +127,20 @@ function App(): React.ReactNode {
     }
   }, [isSignedIn, isAuthReady, setNotes, setFolders]);
 
-  // --- Universal Save to Drive Effect ---
-  useEffect(() => {
-    if (isSyncing.current || !isSignedIn) {
-      return;
-    }
+    // Warn user before leaving with unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                event.preventDefault();
+                event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [hasUnsavedChanges]);
 
-    if (saveDebounceTimeout.current) {
-        clearTimeout(saveDebounceTimeout.current);
-    }
-    
-    const debounceTime = lastChangeType.current === 'structural' ? 100 : 1500;
-    lastChangeType.current = 'content'; // Reset for the next change.
-
-    saveDebounceTimeout.current = window.setTimeout(saveDataToDrive, debounceTime);
-
-    return () => {
-        if (saveDebounceTimeout.current) {
-            clearTimeout(saveDebounceTimeout.current);
-        }
-    };
-  }, [notes, folders, isSignedIn, saveDataToDrive]);
 
   const handleSignIn = () => {
     driveService.signIn();
@@ -122,13 +152,13 @@ function App(): React.ReactNode {
   
   // --- Folder Management ---
   const handleCreateFolder = useCallback((folderData: {name: string, color: string}) => {
-      lastChangeType.current = 'structural';
       const newFolder: Folder = {
           id: `local-${Date.now()}`,
           ...folderData,
       };
       setFolders(prevFolders => [newFolder, ...prevFolders]);
       setIsFolderModalOpen(false);
+      setHasUnsavedChanges(true);
   }, [setFolders]);
 
     const handleToggleFolder = useCallback((folderId: string) => {
@@ -139,7 +169,6 @@ function App(): React.ReactNode {
     }, [setCollapsedFolders]);
 
     const handleConfirmDeleteFolder = useCallback(async (folder: Folder, deleteNotes: boolean) => {
-        lastChangeType.current = 'structural';
         const updatedFolders = folders.filter(f => f.id !== folder.id);
 
         if (deleteNotes) {
@@ -157,17 +186,20 @@ function App(): React.ReactNode {
         
         setFolders(updatedFolders);
         setFolderToDelete(null); // Close modal
+        setHasUnsavedChanges(true);
     }, [notes, folders, setNotes, setFolders]);
   
   // --- Note CRUD Operations ---
   const handleCreateNote = useCallback((folderId: string | null = null) => {
-    lastChangeType.current = 'structural';
     const newNote: Note = {
       id: `local-${Date.now()}`,
       title: 'Untitled Note',
-      index: '',
-      content: '',
-      notes: '',
+      blocks: [{
+          id: `block-${Date.now()}`,
+          type: 'content',
+          title: 'Main Notes',
+          content: ''
+      }],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       folderId: folderId,
@@ -175,6 +207,7 @@ function App(): React.ReactNode {
 
     setNotes(prevNotes => [newNote, ...prevNotes]);
     setActiveNoteId(newNote.id);
+    setHasUnsavedChanges(true);
   }, [setNotes]);
 
   const handleSelectNote = useCallback((id: string) => {
@@ -183,10 +216,6 @@ function App(): React.ReactNode {
   }, []);
   
   const handleUpdateNote = useCallback((updatedNote: Partial<Note> & { id: string }) => {
-    // If the update involves changing the folder, it's a structural change.
-    if (Object.keys(updatedNote).includes('folderId')) {
-        lastChangeType.current = 'structural';
-    }
     setNotes(prevNotes =>
       prevNotes.map(note => {
         if (note.id === updatedNote.id) {
@@ -195,14 +224,15 @@ function App(): React.ReactNode {
         return note;
       })
     );
+    setHasUnsavedChanges(true);
   }, [setNotes]);
   
   const handleDeleteNote = useCallback((id: string) => {
-    lastChangeType.current = 'structural';
     setNotes(prevNotes => prevNotes.filter(note => note.id !== id));
     if (activeNoteId === id) {
         setActiveNoteId(null);
     }
+    setHasUnsavedChanges(true);
   }, [setNotes, activeNoteId]);
 
   const handleMoveNoteToFolder = useCallback((noteId: string, folderId: string | null) => {
@@ -213,12 +243,8 @@ function App(): React.ReactNode {
   }, [notes, handleUpdateNote]);
 
   const handleGoHome = useCallback(() => {
-    if (saveDebounceTimeout.current) {
-        // A save is pending, so we trigger it immediately.
-        saveDataToDrive();
-    }
     setActiveNoteId(null);
-  }, [saveDataToDrive]);
+  }, []);
 
   const activeNote = useMemo(() => notes.find(note => note.id === activeNoteId), [notes, activeNoteId]);
   const activeNoteFolder = useMemo(() => {
@@ -248,7 +274,9 @@ function App(): React.ReactNode {
               folder={activeNoteFolder}
               onUpdateNote={handleUpdateNote}
               onGoHome={handleGoHome}
+              onSaveToDrive={saveDataToDrive}
               savingStatus={savingStatus}
+              hasUnsavedChanges={hasUnsavedChanges}
               isSignedIn={isSignedIn}
             />
           ) : (
@@ -270,6 +298,8 @@ function App(): React.ReactNode {
               onSignOut={handleSignOut}
               authError={authError}
               savingStatus={savingStatus}
+              hasUnsavedChanges={hasUnsavedChanges}
+              onSaveToDrive={saveDataToDrive}
             />
           )}
         </div>

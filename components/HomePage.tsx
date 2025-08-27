@@ -21,6 +21,8 @@ interface HomePageProps {
   onSignOut: () => void;
   authError: string | null;
   savingStatus: SavingStatus;
+  hasUnsavedChanges: boolean;
+  onSaveToDrive: () => void;
 }
 
 // --- HOOKS ---
@@ -79,6 +81,12 @@ const EllipsisVerticalIcon = () => (
     </svg>
 );
 
+const CloudUploadIcon = ({className = "h-5 w-5 mr-2"}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M12 12v9m-4-4l4-4 4 4" />
+    </svg>
+);
+
 const TrashDropZone: React.FC = () => {
     const { setNodeRef, isOver } = useDroppable({
         id: 'trash-zone',
@@ -125,6 +133,15 @@ const NoteCard: React.FC<{ note: Note, onSelect: (id: string) => void, onDelete:
         onDelete(note.id);
     };
 
+    const previewText = useMemo(() => {
+        if (!note.blocks || note.blocks.length === 0) {
+            return 'Empty note...';
+        }
+        const firstBlockWithContent = note.blocks.find(b => b.content.trim() !== '');
+        return firstBlockWithContent?.content || 'Empty note...';
+    }, [note.blocks]);
+
+
     return (
         <div
             onClick={() => onSelect(note.id)}
@@ -133,7 +150,7 @@ const NoteCard: React.FC<{ note: Note, onSelect: (id: string) => void, onDelete:
             <div>
                 <h2 className="text-xl font-bold text-text-main truncate mb-2">{note.title}</h2>
                 <p className="text-text-dim text-sm line-clamp-3">
-                    {note.content || note.index || note.notes || 'Empty note...'}
+                    {previewText}
                 </p>
             </div>
             <div className="mt-4 pt-4 border-t border-border-color flex justify-between items-center">
@@ -275,7 +292,7 @@ const UncategorizedSection: React.FC<{
 
 
 const HomePage: React.FC<HomePageProps> = (props) => {
-    const { notes, folders, notesByFolder, collapsedFolders, onCreateNote, onSelectNote, onDeleteNote, onMoveNoteToFolder, onOpenFolderModal, onOpenDeleteFolderModal, onToggleFolder, isAuthReady, isSignedIn, onSignIn, onSignOut, authError, savingStatus } = props;
+    const { notes, folders, notesByFolder, collapsedFolders, onCreateNote, onSelectNote, onDeleteNote, onMoveNoteToFolder, onOpenFolderModal, onOpenDeleteFolderModal, onToggleFolder, isAuthReady, isSignedIn, onSignIn, onSignOut, authError, savingStatus, hasUnsavedChanges, onSaveToDrive } = props;
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
     const collisionDetectionStrategy = useCallback((args: any) => {
@@ -337,7 +354,7 @@ const HomePage: React.FC<HomePageProps> = (props) => {
             <header className="flex justify-between items-center mb-8 flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Cornell Notes</h1>
-                    {isSignedIn && <SavingIndicator status={savingStatus} />}
+                    {isSignedIn && <SavingIndicator status={savingStatus} hasUnsavedChanges={hasUnsavedChanges} />}
                 </div>
                 <div className="flex items-center gap-4">
                     <AuthButton isAuthReady={isAuthReady} isSignedIn={isSignedIn} onSignIn={onSignIn} onSignOut={onSignOut} />
@@ -348,6 +365,18 @@ const HomePage: React.FC<HomePageProps> = (props) => {
                         <FolderPlusIcon />
                         New Folder
                     </button>
+                    {isSignedIn && (
+                         <button
+                            onClick={onSaveToDrive}
+                            disabled={savingStatus === 'saving'}
+                            className={`flex items-center justify-center font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                hasUnsavedChanges ? 'bg-secondary text-white hover:bg-purple-500 animate-pulse' : 'bg-surface text-text-main hover:bg-border-color'
+                            }`}
+                        >
+                            <CloudUploadIcon className="h-5 w-5 mr-2" />
+                            {savingStatus === 'saving' ? 'Saving...' : 'Save to Drive'}
+                        </button>
+                    )}
                     <button
                         onClick={() => onCreateNote(null)}
                         className="flex items-center justify-center bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-primary-hover transition-all duration-300 transform hover:scale-105"
